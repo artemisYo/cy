@@ -1,0 +1,7 @@
+-Wall
+-Wextra
+-pedantic
+-std=c++23
+-isystem
+include
+-O3
