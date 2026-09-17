@@ -1,12 +1,13 @@
 #pragma once
 
+#include "arena.hxx"
+#include "linked_list.hxx"
 #include "tokenizer.hxx"
 
-#include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <variant>
-#include <vector>
 
 struct File;
 struct Struct;
@@ -15,20 +16,20 @@ struct Value;
 struct Array;
 
 struct File {
-    std::vector<Struct> items;
+    List<Struct> items;
 
     void dump(int depth = 0);
 };
 
 struct Struct {
     std::optional<std::string_view> name;
-    std::vector<Field> fields;
+    List<Field> fields;
 
     void dump(int depth = 0);
 };
 
 struct Array {
-    std::vector<Value> elements;
+    List<Value> elements;
 
     void dump(int depth = 0);
 };
@@ -38,9 +39,9 @@ struct Value {
         std::string_view,
         Struct,
         Array,
-        std::unique_ptr<Value>>;
-    std::vector<Exts> concat;
-    std::unique_ptr<Value> args;
+        Value*>;
+    List<Exts> concat;
+    Value* args;
     Exts exts;
 
     void dump(int depth = 0);
@@ -48,7 +49,7 @@ struct Value {
 
 struct Field {
     using Vals = std::variant<
-        std::unique_ptr<Field>,
+        Field*,
         Value>;
     std::string_view key;
     Vals value;
@@ -58,9 +59,10 @@ struct Field {
 
 class Parser {
     Tokenizer lex;
+    Arena& ar;
 
   public:
-    Parser(std::string_view input) : lex(input) {}
+    Parser(std::string_view input, Arena& arena) : lex(input), ar(arena) {}
 
     std::string diagnostic();
 

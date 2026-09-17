@@ -3,15 +3,20 @@
 #include <cstdio>
 #include <optional>
 
+template <class T>
+inline List<T>::Node list_node(T t) {
+    return typename List<T>::Node(t);
+}
+
 std::optional<File> Parser::pfile() {
     File out{};
     auto res = pstruct();
     if (!res) return std::nullopt;
-    out.items.push_back(std::move(*res));
+    out.items.append(ar.place(list_node(std::move(*res))));
     while (!lex.done()) {
         res = pstruct();
         if (!res) return std::nullopt;
-        out.items.push_back(std::move(*res));
+        out.items.append(ar.place(list_node(std::move(*res))));
     }
     return out;
 }
@@ -26,12 +31,12 @@ std::optional<Struct> Parser::pstruct() {
 
     auto res = pfield();
     if (!res) return std::nullopt;
-    out.fields.push_back(std::move(*res));
+    out.fields.append(ar.place(list_node(std::move(*res))));
 
     while (!lex.eat_if(Token::close_brace)) {
         res = pfield();
         if (!res) return std::nullopt;
-        out.fields.push_back(std::move(*res));
+        out.fields.append(ar.place(list_node(std::move(*res))));
     }
 
     return out;
@@ -51,8 +56,7 @@ std::optional<Field> Parser::pfield() {
     if (lookahead.eat_if(Token::colon)) {
         auto res = pfield();
         if (!res) return std::nullopt;
-        auto value = new Field{std::move(*res)};
-        out.value = std::unique_ptr<Field>{value};
+        out.value = ar.place(Field{std::move(*res)});
     } else {
         auto res = pvalue();
         if (!res) return std::nullopt;
@@ -69,7 +73,7 @@ std::optional<Array> Parser::parray() {
     while (!lex.eat_if(Token::close_bracket)) {
         auto res = pvalue();
         if (!res) return std::nullopt;
-        out.elements.push_back(std::move(*res));
+        out.elements.append(ar.place(list_node(std::move(*res))));
     }
 
     return out;
@@ -96,21 +100,19 @@ std::optional<Value> Parser::pvalue() {
     if (lex.has(Token::open_paren)) {
         auto res = pparens();
         if (!res) return std::nullopt;
-        auto args = new Value{std::move(*res)};
-        out.args = std::unique_ptr<Value>(args);
+        out.args = ar.place(Value{std::move(*res)});
     } else if (lex.has(Token::open_bracket)) {
         auto res = parray();
         if (!res) return std::nullopt;
-        auto args = new Value{};
-        args->exts = std::move(*res);
-        out.args = std::unique_ptr<Value>(args);
+        out.args = ar.place(Value{});
+        out.args->exts = std::move(*res);
     }
 
     for (auto t = lex.peek(); t && lex.str_of(*t) == "+"; t = lex.peek()) {
         lex.next()->str_repr();
         auto res = ppure_value();
         if (!res) return std::nullopt;
-        out.concat.push_back(std::move(*res));
+        out.concat.append(ar.place(list_node(std::move(*res))));
     }
 
     return out;
@@ -134,8 +136,7 @@ std::optional<Value::Exts> Parser::ppure_value() {
         case Token::open_paren: {
             auto res = pparens();
             if (!res) return std::nullopt;
-            auto v = new Value{std::move(*res)};
-            return std::unique_ptr<Value>{v};
+            return ar.place(Value{std::move(*res)});
         }
     }
 }
@@ -184,7 +185,7 @@ void Field::dump(int depth) {
         int depth;
         Visitor(int d) : depth(d) {}
 
-        void operator()(std::unique_ptr<Field>& f) {
+        void operator()(Field*& f) {
             f->dump(depth);
         }
         void operator()(Value& v) {
@@ -208,7 +209,7 @@ void Value::dump(int depth) {
         void operator()(Array& a) {
             a.dump(depth);
         }
-        void operator()(std::unique_ptr<Value>& v) {
+        void operator()(Value*& v) {
             v->dump(depth);
         }
     };
@@ -218,7 +219,7 @@ void Value::dump(int depth) {
         args->dump(depth + 1);
         printf(")");
     }
-    if (concat.size() > 1) {
+    if (!concat.empty()) {
         for (auto& c : concat) {
             printf("\n");
             indent(depth);
@@ -234,7 +235,7 @@ void Value::dump(int depth) {
 }
 
 void Array::dump(int depth) {
-    if (elements.size() > 2) {
+    if (elements.begin().count() > 2) {
         printf("[\n");
         for (auto& e : elements) {
             indent(depth);

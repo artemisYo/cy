@@ -15,6 +15,7 @@ void timed(const char* label, auto f) {
 }
 
 int main() {
+    Arena ar;
     std::string path = "package.cy";
     std::string input{};
     timed("read", [&]() {
@@ -29,7 +30,7 @@ int main() {
     });
 
     std::optional<File> file;
-    Parser p{input};
+    Parser p{input, ar};
     timed("parse", [&]() {
         file = p.pfile();
     });
@@ -37,7 +38,9 @@ int main() {
         printf("%s", p.diagnostic().c_str());
         return 1;
     }
-    // file->dump();
+    timed("dump", [&]() {
+        file->dump();
+    });
 
     return 0;
 }
