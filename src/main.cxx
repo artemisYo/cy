@@ -1,3 +1,4 @@
+#include "parser.hxx"
 #include "tokenizer.hxx"
 #include "util.hxx"
 
@@ -26,6 +27,17 @@ int main() {
             (void)t;
         }
     });
+
+    std::optional<File> file;
+    Parser p{input};
+    timed("parse", [&]() {
+        file = p.pfile();
+    });
+    if (!file) {
+        printf("%s", p.diagnostic().c_str());
+        return 1;
+    }
+    // file->dump();
 
     return 0;
 }
