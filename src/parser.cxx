@@ -48,11 +48,13 @@ struct PParser : Parser {
         auto lookahead = lex;
         lookahead.eat();
         if (lookahead.eat_if(Token::colon)) {
-            out.value = ar.place(Field{});
-            if (!pfield(*std::get<0>(out.value))) return false;
+            out.value.kind = Field::Vals::kfield;
+            out.value.field = ar.place(Field{});
+            if (!pfield(*out.value.field)) return false;
         } else {
-            out.value = Value{};
-            if (!pvalue(std::get<1>(out.value))) return false;
+            out.value.kind = Field::Vals::kvalue;
+            out.value.value = Value{};
+            if (!pvalue(out.value.value)) return false;
         }
 
         return true;
@@ -84,8 +86,9 @@ struct PParser : Parser {
             if (!pparens(*out.args)) return false;
         } else if (lex.has(Token::open_bracket)) {
             out.args = ar.place(Value{});
-            out.args->exts = Array{};
-            if (!parray(std::get<2>(out.args->exts))) return false;
+            out.args->exts.kind = Value::Exts::karray;
+            out.args->exts.array = Array{};
+            if (!parray(out.args->exts.array)) return false;
         }
 
         Token t;
@@ -107,20 +110,24 @@ struct PParser : Parser {
             default: return false;
             case Token::identifier: {
                 lex.next(t);
-                out = lex.str_of(t);
+                out.kind = Value::Exts::kident;
+                out.ident = lex.str_of(t);
                 return true;
             }
             case Token::open_brace: {
-                out = Struct{};
-                return pstruct(std::get<1>(out));
+                out.kind = Value::Exts::kstruct;
+                out.ustruct = Struct{};
+                return pstruct(out.ustruct);
             }
             case Token::open_bracket: {
-                out = Array{};
-                return parray(std::get<2>(out));
+                out.kind = Value::Exts::karray;
+                out.array = Array{};
+                return parray(out.array);
             }
             case Token::open_paren: {
-                out = ar.place(Value{});
-                return pparens(*std::get<3>(out));
+                out.kind = Value::Exts::kvalue;
+                out.value = ar.place(Value{});
+                return pparens(*out.value);
             }
         }
     }
@@ -175,39 +182,34 @@ void Struct::dump(int depth) {
 
 void Field::dump(int depth) {
     printf("%.*s: ", (int)key.size(), key.data());
-    struct Visitor {
-        int depth;
-        Visitor(int d) : depth(d) {}
-
-        void operator()(Field*& f) {
-            f->dump(depth);
-        }
-        void operator()(Value& v) {
-            v.dump(depth);
-        }
-    };
-    std::visit(Visitor{depth}, value);
+    switch (value.kind) {
+        case Vals::kfield:
+            value.field->dump(depth);
+            break;
+        case Vals::kvalue:
+            value.value.dump(depth);
+            break;
+    }
 }
 
 void Value::dump(int depth) {
-    struct Visitor {
-        int depth;
-        Visitor(int d) : depth(d) {}
-
-        void operator()(std::string_view& s) {
-            printf("%.*s", (int)s.size(), s.data());
-        }
-        void operator()(Struct& s) {
-            s.dump(depth);
-        }
-        void operator()(Array& a) {
-            a.dump(depth);
-        }
-        void operator()(Value*& v) {
-            v->dump(depth);
+    auto dump_ext = [=](Exts e) {
+        switch (e.kind) {
+            case Exts::kident:
+                printf("%.*s", (int)e.ident.size(), e.ident.data());
+                break;
+            case Exts::kstruct:
+                e.ustruct.dump(depth + 1);
+                break;
+            case Exts::karray:
+                e.array.dump(depth + 1);
+                break;
+            case Exts::kvalue:
+                e.value->dump(depth + 1);
+                break;
         }
     };
-    std::visit(Visitor{depth + 1}, exts);
+    dump_ext(exts);
     if (args) {
         printf("(");
         args->dump(depth + 1);
@@ -218,12 +220,12 @@ void Value::dump(int depth) {
             printf("\n");
             indent(depth);
             printf("+ ");
-            std::visit(Visitor{depth + 1}, c);
+            dump_ext(c);
         }
     } else {
         for (auto& c : concat) {
             printf(" + ");
-            std::visit(Visitor{depth + 1}, c);
+            dump_ext(c);
         }
     }
 }

@@ -6,7 +6,6 @@
 
 #include <string>
 #include <string_view>
-#include <variant>
 
 struct File;
 struct Struct;
@@ -34,24 +33,40 @@ struct Array {
 };
 
 struct Value {
-    using Exts = std::variant<
-        std::string_view,
-        Struct,
-        Array,
-        Value*>;
+    struct Exts;
+
     List<Exts> concat;
     Value* args;
-    Exts exts;
+    struct Exts {
+        enum {
+            kident,
+            kstruct,
+            karray,
+            kvalue,
+        } kind;
+        union {
+            std::string_view ident;
+            Struct ustruct;
+            Array array;
+            Value* value;
+        };
+    } exts;
 
     void dump(int depth = 0);
 };
 
 struct Field {
-    using Vals = std::variant<
-        Field*,
-        Value>;
     std::string_view key;
-    Vals value;
+    struct Vals {
+        enum {
+            kfield,
+            kvalue,
+        } kind;
+        union {
+            Field* field;
+            Value value;
+        };
+    } value;
 
     void dump(int depth = 0);
 };
