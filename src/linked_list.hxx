@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+
 template <class T>
 class List {
   public:
@@ -35,7 +36,7 @@ class List {
 
     List() : m_head(nullptr), m_tail(nullptr) {}
 
-    void append(Node* n) {
+    Node* append(Node* n) {
         assert(!m_head == !m_tail);
         if (m_tail) {
             m_tail->next = n;
@@ -44,16 +45,32 @@ class List {
             m_head = n;
             m_tail = n;
         }
+        return n;
     }
-    void prepend(Node* n) {
+    Node* prepend(Node* n) {
         assert(!m_head == !m_tail);
         if (!m_tail) m_tail = n;
         n->next = m_head;
         m_head = n;
+        return n;
     }
 
     bool empty() const {
         return m_head == nullptr;
+    }
+
+    T& front() {
+        return m_head->value;
+    }
+    T& back() {
+        return m_tail->value;
+    }
+
+    Node* pop_front() {
+        Node* out = m_head;
+        m_head = out->next;
+        if (!m_head) m_tail = nullptr;
+        return out;
     }
 
     Iter begin() {
