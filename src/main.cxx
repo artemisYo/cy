@@ -24,22 +24,24 @@ int main() {
 
     timed("lex", [&]() {
         auto lex = Tokenizer(input);
-        while (auto t = lex.next()) {
+        Token t{};
+        while (lex.next(t)) {
             (void)t;
         }
     });
 
-    std::optional<File> file;
+    File file{};
+    bool success = true;
     Parser p{input, ar};
     timed("parse", [&]() {
-        file = p.pfile();
+        success = p.file(file);
     });
-    if (!file) {
+    if (!success) {
         printf("%s", p.diagnostic().c_str());
         return 1;
     }
     timed("dump", [&]() {
-        file->dump();
+        file.dump();
     });
 
     return 0;

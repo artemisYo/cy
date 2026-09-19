@@ -2,7 +2,6 @@
 #include "tokenizer.hxx"
 
 #include <cassert>
-#include <optional>
 #include <string>
 #include <string_view>
 
@@ -17,48 +16,51 @@ static u32 ws_count(std::string_view s) {
     return i;
 }
 
-static std::optional<std::tuple<Token::Kind, u32>> once(std::string_view input) {
-    u32 length = 1;
-    Token::Kind kind = Token::identifier;
+static bool once(
+    std::string_view input,
+    Token::Kind& out_k,
+    u32& out_l
+) {
+    out_l = 1;
 
     if (input.size() == 0 || ws_count(input) != 0) {
-        return std::nullopt;
+        return false;
     }
 
     switch (input.at(0)) {
         case ':':
-            kind = Token::colon;
+            out_k = Token::colon;
             break;
         case '{':
-            kind = Token::open_brace;
+            out_k = Token::open_brace;
             break;
         case '}':
-            kind = Token::close_brace;
+            out_k = Token::close_brace;
             break;
         case '[':
-            kind = Token::open_bracket;
+            out_k = Token::open_bracket;
             break;
         case ']':
-            kind = Token::close_bracket;
+            out_k = Token::close_bracket;
             break;
         case '(':
-            kind = Token::open_paren;
+            out_k = Token::open_paren;
             break;
         case ')':
-            kind = Token::close_paren;
+            out_k = Token::close_paren;
             break;
         default: {
-            kind = Token::identifier;
+            out_k = Token::identifier;
             auto idx = input.find_first_of(word_breaks);
             if (idx == std::string_view::npos) {
-                length = input.size();
+                out_l = input.size();
             } else {
-                length = idx;
+                out_l = idx;
             }
             break;
         }
     }
-    return std::tuple{kind, length};
+    return true;
 }
 
 std::string_view Token::str_repr() {
@@ -89,9 +91,10 @@ u32 Token::length(std::string_view source) {
         case close_paren: return 1;
 
         case identifier: {
-            auto res = once(source.substr(offset));
-            assert(res.has_value());
-            return std::get<1>(*res);
+            Token::Kind k;
+            u32 l;
+            assert(once(source.substr(offset), k, l));
+            return l;
         }
     }
 }
@@ -112,44 +115,48 @@ void Tokenizer::skip_ws() {
     }
 }
 
-std::optional<Token> Tokenizer::next() {
-    std::optional<Token> out = std::nullopt;
-    peek().swap(out);
-    return out;
+bool Tokenizer::next(Token& out) {
+    if (!peek(out)) return false;
+    has_token = false;
+    return true;
 }
 
-std::optional<Token> Tokenizer::next_if(Token::Kind k) {
-    std::optional<Token> out = std::nullopt;
-    peek_if(k).swap(out);
-    return out;
+bool Tokenizer::next_if(Token::Kind k, Token& out) {
+    if (!peek_if(k, out)) return false;
+    has_token = false;
+    return true;
 }
 
-std::optional<Token>& Tokenizer::peek() {
-    if (m_tok) return m_tok;
-    auto res = once(m_input.substr(m_offset));
-    if (!res) return m_tok;
-    m_tok = Token{
-        .kind = std::get<0>(*res),
-        .offset = m_offset
-    };
-    m_offset += std::get<1>(*res);
-    skip_ws();
-    return m_tok;
+bool Tokenizer::peek(Token& out) {
+    if (!has_token) {
+        Token::Kind k;
+        u32 l;
+        if (!once(m_input.substr(m_offset), k, l)) return false;
+        m_tok = Token{
+            .kind = k,
+            .offset = m_offset
+        };
+        m_offset += l;
+        has_token = true;
+        skip_ws();
+    }
+    out = m_tok;
+    return true;
 }
 
-std::optional<Token>& Tokenizer::peek_if(Token::Kind k) {
-    static std::optional<Token> none = std::nullopt;
-    auto& t = peek();
-    if (t && t->kind == k) return t;
-    return none;
+bool Tokenizer::peek_if(Token::Kind k, Token& out) {
+    if (peek(out) && out.kind == k) return true;
+    return false;
 }
 
 bool Tokenizer::eat() {
-    return next().has_value();
+    Token ignore{};
+    return next(ignore);
 }
 
 bool Tokenizer::eat_if(Token::Kind k) {
-    return next_if(k).has_value();
+    Token ignore{};
+    return next_if(k, ignore);
 }
 
 bool Tokenizer::done() const {
@@ -157,7 +164,8 @@ bool Tokenizer::done() const {
 }
 
 bool Tokenizer::has(Token::Kind k) {
-    return peek_if(k).has_value();
+    Token ignore{};
+    return peek_if(k, ignore);
 }
 
 std::string_view Tokenizer::str_of(Token& t) {
@@ -169,8 +177,10 @@ std::string Tokenizer::line() {
     auto idx = seen.rfind('\n');
     if (idx == std::string_view::npos) {
         idx = 0;
+    } else {
+        idx += 1;
     }
-    auto line = m_input.substr(idx + 1);
+    auto line = m_input.substr(idx);
     idx = line.find('\n');
     if (idx != std::string_view::npos) {
         idx++;

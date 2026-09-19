@@ -4,7 +4,6 @@
 #include "linked_list.hxx"
 #include "tokenizer.hxx"
 
-#include <optional>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -22,7 +21,7 @@ struct File {
 };
 
 struct Struct {
-    std::optional<std::string_view> name;
+    std::string_view name;
     List<Field> fields;
 
     void dump(int depth = 0);
@@ -58,6 +57,7 @@ struct Field {
 };
 
 class Parser {
+  protected:
     Tokenizer lex;
     Arena& ar;
 
@@ -66,11 +66,5 @@ class Parser {
 
     std::string diagnostic();
 
-    std::optional<File> pfile();
-    std::optional<Struct> pstruct();
-    std::optional<Field> pfield();
-    std::optional<Array> parray();
-    std::optional<Value> pparens();
-    std::optional<Value> pvalue();
-    std::optional<Value::Exts> ppure_value();
+    bool file(File& out);
 };

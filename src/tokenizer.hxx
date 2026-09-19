@@ -1,7 +1,6 @@
 #pragma once
 
 #include <ints.hxx>
-#include <optional>
 #include <string_view>
 
 struct Token {
@@ -24,23 +23,24 @@ struct Token {
 
 class Tokenizer {
     std::string_view m_input;
-    std::optional<Token> m_tok;
-    u32 m_offset;
+    Token m_tok{};
+    bool has_token = false;
+    u32 m_offset = 0;
 
     void skip_ws();
     std::string_view current() const;
 
   public:
-    Tokenizer() : m_input(""), m_offset(0) {}
-    Tokenizer(std::string_view input) : m_input(input), m_offset(0) {
+    Tokenizer() : m_input("") {}
+    Tokenizer(std::string_view input) : m_input(input) {
         skip_ws();
     }
 
-    std::optional<Token> next();
-    std::optional<Token> next_if(Token::Kind);
+    bool next(Token&);
+    bool next_if(Token::Kind, Token&);
 
-    std::optional<Token>& peek();
-    std::optional<Token>& peek_if(Token::Kind);
+    bool peek(Token&);
+    bool peek_if(Token::Kind, Token&);
 
     bool eat();
     bool eat_if(Token::Kind);
