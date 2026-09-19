@@ -57,16 +57,7 @@ struct Value {
 
 struct Field {
     std::string_view key;
-    struct Vals {
-        enum {
-            kfield,
-            kvalue,
-        } kind;
-        union {
-            Field* field;
-            Value value;
-        };
-    } value;
+    Value value;
 
     void dump(int depth = 0);
 };

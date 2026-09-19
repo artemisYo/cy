@@ -47,14 +47,16 @@ struct PParser : Parser {
 
         auto lookahead = lex;
         lookahead.eat();
+        out.value = Value{};
         if (lookahead.eat_if(Token::colon)) {
-            out.value.kind = Field::Vals::kfield;
-            out.value.field = ar.place(Field{});
-            if (!pfield(*out.value.field)) return false;
+            out.value.exts.kind = Value::Exts::kstruct;
+            out.value.exts.ustruct = Struct{};
+            auto f = out.value.exts.ustruct.fields.append(
+                ar.place(list_node(Field{}))
+            );
+            if (!pfield(f->value)) return false;
         } else {
-            out.value.kind = Field::Vals::kvalue;
-            out.value.value = Value{};
-            if (!pvalue(out.value.value)) return false;
+            if (!pvalue(out.value)) return false;
         }
 
         return true;
@@ -182,14 +184,7 @@ void Struct::dump(int depth) {
 
 void Field::dump(int depth) {
     printf("%.*s: ", (int)key.size(), key.data());
-    switch (value.kind) {
-        case Vals::kfield:
-            value.field->dump(depth);
-            break;
-        case Vals::kvalue:
-            value.value.dump(depth);
-            break;
-    }
+    value.dump(depth);
 }
 
 void Value::dump(int depth) {
@@ -199,13 +194,13 @@ void Value::dump(int depth) {
                 printf("%.*s", (int)e.ident.size(), e.ident.data());
                 break;
             case Exts::kstruct:
-                e.ustruct.dump(depth + 1);
+                e.ustruct.dump(depth);
                 break;
             case Exts::karray:
-                e.array.dump(depth + 1);
+                e.array.dump(depth);
                 break;
             case Exts::kvalue:
-                e.value->dump(depth + 1);
+                e.value->dump(depth);
                 break;
         }
     };
