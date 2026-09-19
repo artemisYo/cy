@@ -49,5 +49,5 @@ class Tokenizer {
     bool has(Token::Kind);
 
     std::string_view str_of(Token&);
-    std::string line();
+    std::string_view line();
 };

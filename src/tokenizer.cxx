@@ -2,13 +2,10 @@
 #include "tokenizer.hxx"
 
 #include <cassert>
-#include <string>
 #include <string_view>
 
-static constexpr std::string_view specials = ":{}[]()";
 static constexpr std::string_view whitespace = " \t\n\f\r\v";
-static constexpr std::string word_breaks = std::string{specials}
-                                               .append(whitespace);
+static constexpr std::string_view word_breaks = ":{}[]() \t\n\f\r\v";
 
 static u32 ws_count(std::string_view s) {
     size_t i = s.find_first_not_of(whitespace);
@@ -172,7 +169,7 @@ std::string_view Tokenizer::str_of(Token& t) {
     return t.str_of(m_input);
 }
 
-std::string Tokenizer::line() {
+std::string_view Tokenizer::line() {
     auto seen = m_input.substr(0, m_offset);
     auto idx = seen.rfind('\n');
     if (idx == std::string_view::npos) {
@@ -185,6 +182,5 @@ std::string Tokenizer::line() {
     if (idx != std::string_view::npos) {
         idx++;
     }
-    line = line.substr(0, idx);
-    return std::string(line);
+    return line.substr(0, idx);
 }
