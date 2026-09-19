@@ -7,3 +7,7 @@ c++ $(cat compile_flags.txt) -c -o build/parser.o src/parser.cxx &
 c++ $(cat compile_flags.txt) -c -o build/arena.o src/arena.cxx &
 wait
 c++ $(cat compile_flags.txt) -o build/main build/*.o
+
+if [ "$1" = "run" ]; then
+    ./build/main
+fi
