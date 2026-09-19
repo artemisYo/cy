@@ -1,13 +1,15 @@
 #pragma once
 
-#include <fstream>
-#include <string>
+#include <cassert>
+#include <cstdio>
 
-inline std::string read_file(std::string& path) {
-    std::ifstream file(path, std::ios::in | std::ios::ate);
-    auto size = file.tellg();
-    file.seekg(0);
-    std::string content(size, '\0');
-    file.read(content.data(), size);
-    return content;
+inline char* read_file(const char* path, size_t& len) {
+    FILE* file = fopen(path, "r");
+    fseek(file, 0, SEEK_END);
+    len = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    char* str = new char[len + 1];
+    assert(fread(str, 1, len, file) == (unsigned long)len);
+    str[len] = 0;
+    return str;
 }

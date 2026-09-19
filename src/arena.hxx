@@ -1,7 +1,7 @@
 #pragma once
 
 #include <concepts>
-#include <cstdlib>
+#include <ints.hxx>
 
 #define ARENA_SZ 4096
 
@@ -68,7 +68,7 @@ class Arena {
         }
     };
 
-    void* alloc(size_t size);
+    void* alloc(usize size);
     template <class T>
     T* place(T val) {
         return new (alloc(sizeof(val))) T(std::move(val));

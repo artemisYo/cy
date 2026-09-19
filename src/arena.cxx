@@ -13,7 +13,7 @@ void Arena::grow() {
     m_current->end = &m_current->bump[sizeof(m_current->buf)];
 }
 
-void* Arena::alloc(size_t size) {
+void* Arena::alloc(usize size) {
     if (!this->m_current) this->grow();
     auto old_bump = (uintptr_t)m_current->bump;
     old_bump = (old_bump + 15) & (~15);

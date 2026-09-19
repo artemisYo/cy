@@ -16,10 +16,13 @@ void timed(const char* label, auto f) {
 
 int main() {
     Arena ar;
-    std::string path = "package.cy";
+    auto path = "package.cy";
     std::string input{};
     timed("read", [&]() {
-        input = read_file(path);
+        size_t len = 0;
+        char* content = read_file(path, len);
+        input = std::string{content, len};
+        delete content;
     });
 
     timed("lex", [&]() {
