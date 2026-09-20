@@ -1,5 +1,7 @@
 #include "parser.hxx"
 
+#include "ast.hxx"
+
 #include <cstdio>
 
 template <class T>
@@ -11,25 +13,77 @@ struct PParser : Parser {
     PParser(Parser&& p) : Parser(p) {}
 
     bool pfile(File& out) {
-        auto res = out.items.append(ar.place(list_node(Struct{})));
-        if (!pstruct(res->value)) return false;
         while (!lex.done()) {
-            auto res = out.items.append(ar.place(list_node(Struct{})));
-            if (!pstruct(res->value)) return false;
+            auto res = out.items.append(ar.place(list_node(Expr{})));
+            if (!pexpr(res->value)) return false;
         }
         return true;
     }
 
-    bool pstruct(Struct& out) {
-        Token t;
-        if (lex.next_if(Token::identifier, t)) {
-            out.name = lex.str_of(t);
-        } else {
-            out.name = "";
+    bool pexpr(Expr& out) {
+        out.value = ar.place(Value{});
+        if (!pvalue(*out.value)) return false;
+
+        if (lex.has(Token::open_paren)) {
+            out.arg = ar.place(Value{});
+            out.arg->kind = Value::kexpr;
+            out.arg->expr = Expr{};
+            if (!pparens(out.arg->expr)) return false;
+        } else if (lex.has(Token::open_bracket)) {
+            out.arg = ar.place(Value{});
+            out.arg->kind = Value::karray;
+            out.arg->array = Array{};
+            if (!parray(out.arg->array)) return false;
+        } else if (lex.has(Token::open_brace)) {
+            out.arg = ar.place(Value{});
+            out.arg->kind = Value::kstruct;
+            out.arg->ustruct = Struct{};
+            if (!pstruct(out.arg->ustruct)) return false;
         }
 
-        if (!lex.eat_if(Token::open_brace)) return false;
+        Token t;
+        while (lex.peek(t) && lex.str_of(t) == "+") {
+            lex.next(t);
+            auto res = out.concat.append(ar.place(list_node(Value{})));
+            if (!pvalue(res->value)) return false;
+        }
 
+        return true;
+    }
+
+    bool pvalue(Value& out) {
+        if (lex.done()) return false;
+
+        Token t;
+        lex.peek(t);
+        switch (t.kind) {
+            default: return false;
+            case Token::identifier: {
+                lex.next(t);
+                out.kind = Value::kident;
+                out.ident = lex.str_of(t);
+                return true;
+            }
+            case Token::open_brace: {
+                out.kind = Value::kstruct;
+                out.ustruct = Struct{};
+                return pstruct(out.ustruct);
+            }
+            case Token::open_bracket: {
+                out.kind = Value::karray;
+                out.array = Array{};
+                return parray(out.array);
+            }
+            case Token::open_paren: {
+                out.kind = Value::kexpr;
+                out.expr = Expr{};
+                return pparens(out.expr);
+            }
+        }
+    }
+
+    bool pstruct(Struct& out) {
+        if (!lex.eat_if(Token::open_brace)) return false;
         while (!lex.eat_if(Token::close_brace)) {
             auto res = out.fields.append(ar.place(list_node(Field{})));
             if (!pfield(res->value)) return false;
@@ -47,16 +101,17 @@ struct PParser : Parser {
 
         auto lookahead = lex;
         lookahead.eat();
-        out.value = Value{};
+        out.value = Expr{};
         if (lookahead.eat_if(Token::colon)) {
-            out.value.exts.kind = Value::Exts::kstruct;
-            out.value.exts.ustruct = Struct{};
-            auto f = out.value.exts.ustruct.fields.append(
+            out.value.value = ar.place(Value{});
+            out.value.value->kind = Value::kstruct;
+            out.value.value->ustruct = Struct{};
+            auto f = out.value.value->ustruct.fields.append(
                 ar.place(list_node(Field{}))
             );
             if (!pfield(f->value)) return false;
         } else {
-            if (!pvalue(out.value)) return false;
+            if (!pexpr(out.value)) return false;
         }
 
         return true;
@@ -65,73 +120,19 @@ struct PParser : Parser {
     bool parray(Array& out) {
         if (!lex.eat_if(Token::open_bracket)) return false;
         while (!lex.eat_if(Token::close_bracket)) {
-            auto res = out.elements.append(ar.place(list_node(Value{})));
-            if (!pvalue(res->value)) return false;
+            auto res = out.elements.append(ar.place(list_node(Expr{})));
+            if (!pexpr(res->value)) return false;
         }
 
         return true;
     }
 
-    bool pparens(Value& out) {
+    bool pparens(Expr& out) {
         if (!lex.eat_if(Token::open_paren)) return false;
-        if (!pvalue(out)) return false;
+        if (!pexpr(out)) return false;
         if (!lex.eat_if(Token::close_paren)) return false;
 
         return true;
-    }
-
-    bool pvalue(Value& out) {
-        if (!ppure_value(out.exts)) return false;
-
-        if (lex.has(Token::open_paren)) {
-            out.args = ar.place(Value{});
-            if (!pparens(*out.args)) return false;
-        } else if (lex.has(Token::open_bracket)) {
-            out.args = ar.place(Value{});
-            out.args->exts.kind = Value::Exts::karray;
-            out.args->exts.array = Array{};
-            if (!parray(out.args->exts.array)) return false;
-        }
-
-        Token t;
-        while (lex.peek(t) && lex.str_of(t) == "+") {
-            lex.next(t);
-            auto res = out.concat.append(ar.place(list_node(Value::Exts{})));
-            if (!ppure_value(res->value)) return false;
-        }
-
-        return true;
-    }
-
-    bool ppure_value(Value::Exts& out) {
-        if (lex.done()) return false;
-
-        Token t;
-        lex.peek(t);
-        switch (t.kind) {
-            default: return false;
-            case Token::identifier: {
-                lex.next(t);
-                out.kind = Value::Exts::kident;
-                out.ident = lex.str_of(t);
-                return true;
-            }
-            case Token::open_brace: {
-                out.kind = Value::Exts::kstruct;
-                out.ustruct = Struct{};
-                return pstruct(out.ustruct);
-            }
-            case Token::open_bracket: {
-                out.kind = Value::Exts::karray;
-                out.array = Array{};
-                return parray(out.array);
-            }
-            case Token::open_paren: {
-                out.kind = Value::Exts::kvalue;
-                out.value = ar.place(Value{});
-                return pparens(*out.value);
-            }
-        }
     }
 };
 
@@ -169,9 +170,6 @@ void File::dump(int depth) {
 }
 
 void Struct::dump(int depth) {
-    if (!name.empty()) {
-        printf("%.*s ", (int)name.size(), name.data());
-    }
     printf("{\n");
     for (auto& f : fields) {
         indent(depth);
@@ -187,41 +185,46 @@ void Field::dump(int depth) {
     value.dump(depth);
 }
 
-void Value::dump(int depth) {
-    auto dump_ext = [=](Exts e) {
-        switch (e.kind) {
-            case Exts::kident:
-                printf("%.*s", (int)e.ident.size(), e.ident.data());
-                break;
-            case Exts::kstruct:
-                e.ustruct.dump(depth);
-                break;
-            case Exts::karray:
-                e.array.dump(depth);
-                break;
-            case Exts::kvalue:
-                e.value->dump(depth);
-                break;
+void Expr::dump(int depth) {
+    value->dump(depth);
+    if (arg) {
+        if (arg->kind == Value::kexpr) {
+            printf("(");
+            arg->dump(depth + 1);
+            printf(")");
+        } else {
+            arg->dump(depth);
         }
-    };
-    dump_ext(exts);
-    if (args) {
-        printf("(");
-        args->dump(depth + 1);
-        printf(")");
     }
     if (!concat.empty()) {
         for (auto& c : concat) {
             printf("\n");
             indent(depth);
             printf("+ ");
-            dump_ext(c);
+            c.dump(depth);
         }
     } else {
         for (auto& c : concat) {
             printf(" + ");
-            dump_ext(c);
+            c.dump(depth);
         }
+    }
+}
+
+void Value::dump(int depth) {
+    switch (kind) {
+        case Value::kident:
+            printf("%.*s", (int)ident.size(), ident.data());
+            break;
+        case Value::kstruct:
+            ustruct.dump(depth);
+            break;
+        case Value::karray:
+            array.dump(depth);
+            break;
+        case Value::kexpr:
+            expr.dump(depth);
+            break;
     }
 }
 

@@ -25,11 +25,12 @@ Configuration {
     force: release.force
 }
 
--- File   := Struct+
--- Struct := ident? '{' Field+ '}'
--- Field  := ident ':' (Value / Field)
--- Value  := PValue (Parens / Array)? Concat*
--- PValue := ident / Struct / Array / Parens
--- Array  := '[' Value* ']'
--- Parens := '(' Value ')'
--- Concat := '+' PValue
+-- File     := Expr*
+-- Expr     := Value AggValue? Concat*
+-- Concat   := '+' Value
+-- Value    := ident / AggValue
+-- AggValue := Parens / Array / Struct
+-- Struct   := '{' Field* '}'
+-- Field    := ident ':' (Expr / Field)
+-- Array    := '[' Expr* ']'
+-- Parens   := '(' Expr ')'

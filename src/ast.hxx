@@ -7,54 +7,56 @@
 struct File;
 struct Struct;
 struct Field;
+struct Expr;
 struct Value;
 struct Array;
 
 struct File {
-    List<Struct> items;
+    List<Expr> items;
 
     void dump(int depth = 0);
 };
 
 struct Struct {
-    std::string_view name;
     List<Field> fields;
 
     void dump(int depth = 0);
 };
 
 struct Array {
-    List<Value> elements;
+    List<Expr> elements;
+
+    void dump(int depth = 0);
+};
+
+struct Expr {
+    Value* value;
+    Value* arg; // NULLABLE
+    List<Value> concat;
 
     void dump(int depth = 0);
 };
 
 struct Value {
-    struct Exts;
-
-    List<Exts> concat;
-    Value* args;
-    struct Exts {
-        enum {
-            kident,
-            kstruct,
-            karray,
-            kvalue,
-        } kind;
-        union {
-            std::string_view ident;
-            Struct ustruct;
-            Array array;
-            Value* value;
-        };
-    } exts;
+    enum {
+        kident,
+        kstruct,
+        karray,
+        kexpr,
+    } kind;
+    union {
+        std::string_view ident;
+        Struct ustruct;
+        Array array;
+        Expr expr;
+    };
 
     void dump(int depth = 0);
 };
 
 struct Field {
     std::string_view key;
-    Value value;
+    Expr value;
 
     void dump(int depth = 0);
 };
